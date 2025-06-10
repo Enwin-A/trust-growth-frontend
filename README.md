@@ -6,6 +6,6 @@ First, run the development server:
 
 ```bash
 npm run dev
-
+```
 
 check out on link: https://trust-growth-frontend.vercel.app/
