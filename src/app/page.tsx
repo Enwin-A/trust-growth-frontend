@@ -20,12 +20,12 @@ export default function HomePage() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // the file handler
+  // file input change handler
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFiles(e.target.files);
   };
 
-  // backend submit form stuff
+  // submit form to backend
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!files || files.length === 0) {
@@ -41,7 +41,9 @@ export default function HomePage() {
     Array.from(files).forEach((f) => form.append('files', f));
 
     try {
-      const res = await fetch('http://localhost:4000/api/analyze', {
+      // use environment variable for base URL and if not fallback to localhost
+      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
+      const res = await fetch(`${baseUrl}/api/analyze`, {
         method: 'POST',
         body: form,
       });
@@ -50,24 +52,37 @@ export default function HomePage() {
         let errMsg = `HTTP ${res.status}`;
         try {
           const errJson = await res.json();
-          errMsg = errJson.error || JSON.stringify(errJson);
+          if (errJson && typeof errJson === 'object' && 'error' in errJson) {
+            // @ts-expect-error: we check at runtime
+            errMsg = (errJson as any).error || JSON.stringify(errJson);
+          } else {
+            errMsg = JSON.stringify(errJson);
+          }
         } catch {
           const text = await res.text();
           errMsg = text || errMsg;
         }
         throw new Error(errMsg);
       }
+      // parsing successful response
       const json = (await res.json()) as AnalysisResult;
       setResult(json);
-    } catch (e: any) {
-      console.error('Fetch error:', e);
-      setError(e.message || 'Unknown error');
+    } catch (e: unknown) {
+      // handling unknown error type
+      let errMsg: string;
+      if (e instanceof Error) {
+        errMsg = e.message;
+      } else {
+        errMsg = String(e);
+      }
+      console.error('Fetch error:', errMsg);
+      setError(errMsg || 'Unknown error');
     } finally {
       setLoading(false);
     }
   };
 
-  // the export JSON client side
+  // export JSON client side
   const handleExportJson = () => {
     if (!result) return;
     const dataStr = JSON.stringify(result, null, 2);
@@ -142,9 +157,11 @@ export default function HomePage() {
         <div className="mt-8 w-full max-w-lg bg-white p-6 rounded shadow">
           <h2 className="text-2xl font-semibold mb-4">Results for {result.ticker}</h2>
 
-          {/* the trust section */}
+          {/* trust section */}
           <div className="mb-6">
-            <h3 className="font-medium text-lg">Trust (Transparency): {result.trustScore}/100</h3>
+            <h3 className="font-medium text-lg">
+              Trust (Transparency): {result.trustScore}/100
+            </h3>
             <p className="mt-1 text-gray-700">{result.trustJustification}</p>
             {result.trustRecommendations && result.trustRecommendations.length > 0 && (
               <>
@@ -158,9 +175,11 @@ export default function HomePage() {
             )}
           </div>
 
-          {/* the growth section */}
+          {/* growth section */}
           <div className="mb-6">
-            <h3 className="font-medium text-lg">Growth (Differentiation): {result.growthScore}/100</h3>
+            <h3 className="font-medium text-lg">
+              Growth (Differentiation): {result.growthScore}/100
+            </h3>
             <p className="mt-1 text-gray-700">{result.growthJustification}</p>
             {result.growthRecommendations && result.growthRecommendations.length > 0 && (
               <>
@@ -177,11 +196,11 @@ export default function HomePage() {
           <p className="mt-4 italic text-gray-600">{result.summary}</p>
           <p className="mt-2 text-sm text-gray-500">Run ID: {result.runId}</p>
 
-          {/* the export JSON button */}
+          {/* export JSON button */}
           <div className="mt-4">
             <button
               onClick={handleExportJson}
-              className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded"
+              className="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded"
             >
               Export JSON
             </button>
