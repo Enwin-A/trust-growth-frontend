@@ -20,12 +20,12 @@ export default function HomePage() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // file input change handler
+  // the file handler
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFiles(e.target.files);
   };
 
-  // submit form to backend
+  // backend submit form stuff
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!files || files.length === 0) {
@@ -48,15 +48,25 @@ export default function HomePage() {
         body: form,
       });
       if (!res.ok) {
-        // trying to parse JSON error, else text
+        // parse JSON error, else text
         let errMsg = `HTTP ${res.status}`;
         try {
-          const errJson = await res.json();
-          if (errJson && typeof errJson === 'object' && 'error' in errJson) {
-            // @ts-expect-error: we check at runtime
-            errMsg = (errJson as any).error || JSON.stringify(errJson);
+          const errJson: unknown = await res.json();
+          if (errJson && typeof errJson === 'object' && errJson !== null) {
+            const obj = errJson as Record<string, unknown>;
+            if (
+              'error' in obj &&
+              typeof obj.error === 'string' &&
+              obj.error.length > 0
+            ) {
+              errMsg = obj.error;
+            } else {
+              // fallback to entire object
+              errMsg = JSON.stringify(obj);
+            }
           } else {
-            errMsg = JSON.stringify(errJson);
+            const text = await res.text();
+            errMsg = text || errMsg;
           }
         } catch {
           const text = await res.text();
@@ -68,7 +78,6 @@ export default function HomePage() {
       const json = (await res.json()) as AnalysisResult;
       setResult(json);
     } catch (e: unknown) {
-      // handling unknown error type
       let errMsg: string;
       if (e instanceof Error) {
         errMsg = e.message;
@@ -163,7 +172,7 @@ export default function HomePage() {
               Trust (Transparency): {result.trustScore}/100
             </h3>
             <p className="mt-1 text-gray-700">{result.trustJustification}</p>
-            {result.trustRecommendations && result.trustRecommendations.length > 0 && (
+            {result.trustRecommendations.length > 0 && (
               <>
                 <h4 className="font-medium mt-3">Transparency Recommendations:</h4>
                 <ul className="list-disc list-inside ml-4 mt-1">
@@ -181,7 +190,7 @@ export default function HomePage() {
               Growth (Differentiation): {result.growthScore}/100
             </h3>
             <p className="mt-1 text-gray-700">{result.growthJustification}</p>
-            {result.growthRecommendations && result.growthRecommendations.length > 0 && (
+            {result.growthRecommendations.length > 0 && (
               <>
                 <h4 className="font-medium mt-3">Differentiation Recommendations:</h4>
                 <ul className="list-disc list-inside ml-4 mt-1">
